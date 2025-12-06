@@ -1,0 +1,416 @@
+# 📦 Installation Guide
+
+Detaillierte Installationsanleitung für Odoo Electro MongoDB ERP.
+
+## 📋 Inhaltsverzeichnis
+
+- [Systemanforderungen](#systemanforderungen)
+- [Schnellstart mit Docker](#schnellstart-mit-docker)
+- [Manuelle Installation](#manuelle-installation)
+- [Produktions-Deployment](#produktions-deployment)
+- [Troubleshooting](#troubleshooting)
+
+## 🖥️ Systemanforderungen
+
+### Minimum
+
+- **CPU**: 2 Cores
+- **RAM**: 4 GB
+- **Festplatte**: 10 GB freier Speicher
+- **OS**: Linux (Ubuntu 22.04 LTS empfohlen), macOS, Windows mit WSL2
+
+### Empfohlen
+
+- **CPU**: 4+ Cores
+- **RAM**: 8+ GB
+- **Festplatte**: 20+ GB SSD
+- **OS**: Ubuntu 22.04 LTS Server
+
+### Software
+
+- Docker 24.0+
+- Docker Compose 2.0+
+- Git 2.x
+- (Optional) Python 3.11+ für lokale Tests
+
+## 🚀 Schnellstart mit Docker
+
+### Option 1: Mit Setup-Script (Empfohlen)
+
+```bash
+# 1. Repository klonen
+git clone https://github.com/dein-username/odoo-electro-mongodb-erp.git
+cd odoo-electro-mongodb-erp
+
+# 2. Setup-Script ausführen (macht alles automatisch)
+chmod +x scripts/setup_dev_env.sh
+./scripts/setup_dev_env.sh
+
+# 3. Browser öffnen
+# Odoo: http://localhost:8069
+# Mongo Express: http://localhost:8081
+```
+
+Das Script macht automatisch:
+- ✅ Prüft Voraussetzungen
+- ✅ Erstellt Verzeichnisstruktur
+- ✅ Lädt Docker Images
+- ✅ Startet alle Services
+- ✅ Wartet bis alles bereit ist
+
+### Option 2: Manuell
+
+```bash
+# 1. Repository klonen
+git clone https://github.com/dein-username/odoo-electro-mongodb-erp.git
+cd odoo-electro-mongodb-erp
+
+# 2. Umgebungsvariablen konfigurieren
+cp .env.example .env
+nano .env  # Passwörter anpassen!
+
+# 3. Docker Compose starten
+docker-compose up -d
+
+# 4. Logs verfolgen
+docker-compose logs -f odoo
+
+# 5. Warten bis "odoo.service.server: HTTP service (werkzeug) running" erscheint
+# Dann im Browser öffnen: http://localhost:8069
+```
+
+## 🔧 Ersteinrichtung
+
+### 1. Odoo Datenbank erstellen
+
+1. Öffne http://localhost:8069
+2. Klicke "Create Database"
+3. Fülle Formular aus:
+   - **Master Password**: `admin` (aus `.env` - **ÄNDERN!**)
+   - **Database Name**: `electro_erp`
+   - **Email**: `admin@example.com`
+   - **Password**: Starkes Admin-Passwort
+   - **Language**: `Deutsch / German`
+   - **Country**: `Switzerland`
+   - **Demo Data**: Ja (für Tests) / Nein (für Produktion)
+
+4. Klicke "Create Database"
+5. Warte 2-3 Minuten...
+
+### 2. Electro ERP Modul installieren
+
+1. Nach Login → Menü **Apps**
+2. Suchfilter entfernen (X bei "Apps")
+3. Suche: `Electro ERP`
+4. Klicke **Install**
+5. Warte 1-2 Minuten...
+
+### 3. Modul konfigurieren
+
+Nach Installation:
+
+1. **Menü erscheint**: "Electro ERP" in der Hauptnavigation
+2. **Gehe zu**: Electro ERP → Konfiguration
+3. **Setze**:
+   - Firma-Details (Schweizer Adresse)
+   - ESTI-Standard-Einstellungen
+   - Material-Kategorien (werden automatisch geladen)
+
+### 4. MongoDB prüfen
+
+1. Öffne http://localhost:8081
+2. Login: `admin` / `admin` (aus `.env` - **ÄNDERN!**)
+3. Datenbank: `electro_erp`
+4. Collections sollten sichtbar sein:
+   - `projects` (2 Demo-Projekte)
+   - `sensor_readings` (48 Demo-Einträge)
+   - `documents` (2 Demo-Dokumente)
+
+## 🛠️ Manuelle Installation (ohne Docker)
+
+### Für erfahrene Benutzer oder spezielle Anforderungen
+
+#### 1. PostgreSQL installieren
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install postgresql-15 postgresql-client-15
+
+# Datenbank erstellen
+sudo -u postgres psql
+CREATE DATABASE electro_erp;
+CREATE USER odoo WITH PASSWORD 'secure_password';
+GRANT ALL PRIVILEGES ON DATABASE electro_erp TO odoo;
+\q
+```
+
+#### 2. MongoDB installieren
+
+```bash
+# Ubuntu 22.04
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+
+# Starten
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Initialisieren
+mongosh < mongodb/init.js
+```
+
+#### 3. Odoo installieren
+
+```bash
+# Dependencies
+sudo apt-get install python3-pip python3-dev libxml2-dev libxslt1-dev \
+                     libldap2-dev libsasl2-dev libssl-dev
+
+# Odoo 17 (Community Edition)
+wget https://nightly.odoo.com/17.0/nightly/deb/odoo_17.0.latest_all.deb
+sudo dpkg -i odoo_17.0.latest_all.deb
+sudo apt-get install -f
+
+# Python Dependencies
+sudo pip3 install -r requirements.txt
+```
+
+#### 4. Electro ERP Modul installieren
+
+```bash
+# Modul kopieren
+sudo mkdir -p /usr/lib/python3/dist-packages/odoo/addons-extra
+sudo cp -r electro_erp /usr/lib/python3/dist-packages/odoo/addons-extra/
+
+# Odoo Config anpassen
+sudo nano /etc/odoo/odoo.conf
+
+# Addons-Path ergänzen:
+# addons_path = /usr/lib/python3/dist-packages/odoo/addons,/usr/lib/python3/dist-packages/odoo/addons-extra
+
+# Odoo neu starten
+sudo systemctl restart odoo
+```
+
+## 🏭 Produktions-Deployment
+
+### Mit Docker Compose (Production)
+
+```bash
+# 1. Production Docker Compose erstellen
+cp docker-compose.yml docker-compose.prod.yml
+
+# 2. Anpassen für Produktion
+nano docker-compose.prod.yml
+
+# Wichtige Änderungen:
+# - Entferne alle Ports außer Odoo (via Nginx)
+# - Setze restart: always
+# - Verwende benannte Volumes statt Bind-Mounts
+# - Aktiviere SSL/TLS
+# - Setze starke Passwörter
+
+# 3. .env für Produktion
+cp .env.example .env.prod
+nano .env.prod  # Sichere Passwörter!
+
+# 4. Starten
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+### Mit Nginx Reverse Proxy
+
+```bash
+# 1. Nginx installieren
+sudo apt-get install nginx
+
+# 2. Konfiguration erstellen
+sudo nano /etc/nginx/sites-available/electro-erp
+
+# Inhalt:
+upstream odoo {
+    server 127.0.0.1:8069;
+}
+
+server {
+    listen 80;
+    server_name erp.example.com;
+    
+    # Weiterleitung zu HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name erp.example.com;
+    
+    ssl_certificate /etc/letsencrypt/live/erp.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/erp.example.com/privkey.pem;
+    
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    
+    location / {
+        proxy_pass http://odoo;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    location /longpolling {
+        proxy_pass http://127.0.0.1:8072;
+    }
+}
+
+# 3. Aktivieren
+sudo ln -s /etc/nginx/sites-available/electro-erp /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### SSL mit Let's Encrypt
+
+```bash
+# Certbot installieren
+sudo apt-get install certbot python3-certbot-nginx
+
+# Zertifikat erstellen
+sudo certbot --nginx -d erp.example.com
+
+# Auto-Renewal testen
+sudo certbot renew --dry-run
+```
+
+### Backup-Strategie
+
+```bash
+# 1. PostgreSQL Backup (täglich via Cron)
+0 2 * * * docker-compose exec -T db pg_dump -U odoo electro_erp | gzip > /backup/postgres/electro_erp_$(date +\%Y\%m\%d).sql.gz
+
+# 2. MongoDB Backup (täglich)
+0 3 * * * /opt/electro-erp/scripts/backup_mongodb.sh
+
+# 3. Filestore Backup (wöchentlich)
+0 4 * * 0 tar -czf /backup/filestore/filestore_$(date +\%Y\%m\%d).tar.gz /var/lib/odoo/filestore
+
+# 4. Alte Backups löschen (älter als 30 Tage)
+0 5 * * * find /backup -type f -mtime +30 -delete
+```
+
+## 🐛 Troubleshooting
+
+### Problem: Odoo startet nicht
+
+```bash
+# Logs prüfen
+docker-compose logs odoo
+
+# Häufige Ursachen:
+# 1. PostgreSQL nicht bereit
+docker-compose exec db pg_isready
+
+# 2. Port 8069 bereits belegt
+sudo lsof -i :8069
+sudo kill -9 <PID>
+
+# 3. Permissions
+sudo chown -R 101:101 ./electro_erp
+```
+
+### Problem: MongoDB Verbindung fehlgeschlagen
+
+```bash
+# MongoDB Status prüfen
+docker-compose exec mongodb mongosh --eval "db.runCommand({ ping: 1 })"
+
+# MongoDB Logs
+docker-compose logs mongodb
+
+# Neustart
+docker-compose restart mongodb
+```
+
+### Problem: Modul wird nicht gefunden
+
+```bash
+# 1. Prüfe ob Modul-Verzeichnis gemountet ist
+docker-compose exec odoo ls -la /mnt/extra-addons/
+
+# 2. Prüfe __manifest__.py
+cat electro_erp/__manifest__.py
+
+# 3. Odoo Addons-Path prüfen
+docker-compose exec odoo odoo --addons-path
+
+# 4. Container neu bauen
+docker-compose down
+docker-compose build --no-cache odoo
+docker-compose up -d
+```
+
+### Problem: pymongo nicht gefunden
+
+```bash
+# 1. Prüfe ob installiert
+docker-compose exec odoo pip3 list | grep pymongo
+
+# 2. Neu installieren
+docker-compose exec odoo pip3 install pymongo==4.6.1
+
+# 3. Oder Image neu bauen
+docker-compose build --no-cache odoo
+```
+
+### Problem: "Database creation error"
+
+```bash
+# 1. PostgreSQL Permissions prüfen
+docker-compose exec db psql -U odoo -c "\l"
+
+# 2. Datenbank manuell erstellen
+docker-compose exec db psql -U postgres -c "CREATE DATABASE electro_erp;"
+docker-compose exec db psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE electro_erp TO odoo;"
+
+# 3. Master Password prüfen
+# In .env: ODOO_ADMIN_PASSWORD
+```
+
+### Problem: Performance-Probleme
+
+```bash
+# 1. Mehr Workers
+# In docker-compose.yml: WORKERS=4
+
+# 2. PostgreSQL optimieren
+docker-compose exec db psql -U postgres -c "ALTER SYSTEM SET shared_buffers = '256MB';"
+docker-compose exec db psql -U postgres -c "ALTER SYSTEM SET work_mem = '8MB';"
+docker-compose restart db
+
+# 3. MongoDB Indexes prüfen
+docker-compose exec mongodb mongosh electro_erp --eval "db.projects.getIndexes()"
+```
+
+## 📞 Support
+
+Bei Problemen:
+
+1. **Logs prüfen**: `docker-compose logs -f`
+2. **GitHub Issues**: [Issues erstellen](https://github.com/dein-username/odoo-electro-mongodb-erp/issues)
+3. **Diskussionen**: [GitHub Discussions](https://github.com/dein-username/odoo-electro-mongodb-erp/discussions)
+4. **Dokumentation**: [docs/](../docs/)
+
+## 🎓 Weiterführende Links
+
+- [Odoo Documentation](https://www.odoo.com/documentation/17.0/)
+- [MongoDB Documentation](https://docs.mongodb.com/)
+- [Docker Documentation](https://docs.docker.com/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+
+---
+
+**Viel Erfolg mit der Installation! 🚀**
