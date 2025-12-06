@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Odoo Standard)
+  db:
+    image: postgres:15-alpine
+    container_name: electro_erp_postgres
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/pgdata
+    restart: unless-stopped
+    networks:
+      - electro_network
+
+  # MongoDB (Flexible Daten, IoT, Dokumente)
+  mongodb:
+    image: mongo:7.0
+    container_name: electro_erp_mongodb
+    environment:
+      - MONGO_INITDB_DATABASE=electro_erp
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb/init.js:/docker-entrypoint-initdb.d/init.js:ro
+      - ./mongodb/indexes.js:/docker-entrypoint-initdb.d/indexes.js:ro
+    restart: unless-stopped
+    networks:
+      - electro_network
+
+  # Odoo (Custom Image mit MongoDB-Support)
+  odoo:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.odoo
+    container_name: electro_erp_odoo
+    depends_on:
+      - db
+      - mongodb
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=odoo
+      - MONGODB_URI=mongodb://mongodb:27017/electro_erp
+      - WORKERS=2
+    volumes:
+      - ./electro_erp:/mnt/extra-addons/electro_erp
+      - odoo_web_data:/var/lib/odoo
+      - ./config:/etc/odoo
+    restart: unless-stopped
+    command: odoo --dev=all --log-level=info
+    networks:
+      - electro_network
+
+  # Mongo Express (MongoDB Web UI)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: electro_erp_mongo_express
+    depends_on:
+      - mongodb
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+    restart: unless-stopped
+    networks:
+      - electro_network
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  odoo_web_data:
+    driver: local
+
+networks:
+  electro_network:
+    driver: bridge
